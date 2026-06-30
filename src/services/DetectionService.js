@@ -27,7 +27,7 @@ export class DetectionService {
         await tf.setBackend('cpu');
       }
     }
-    
+
     await tf.ready();
 
     // Load model with progress tracking and metadata in parallel
@@ -49,29 +49,29 @@ export class DetectionService {
   // Lakukan prediksi pada elemen gambar yang diberikan dan kembalikan hasilnya
   async predict(imageElement) {
     if (!this.isLoaded()) {
-      throw new Error("Detection model is not loaded yet");
+      throw new Error('Detection model is not loaded yet');
     }
 
     return tf.tidy(() => {
       // Ubah gambar menjadi Tensor
       const tensor = tf.browser.fromPixels(imageElement);
-      
+
       // Teachable Machine image size is 224x224
       const resized = tf.image.resizeBilinear(tensor, [224, 224]);
-      
+
       // Normalisasi piksel ke range [-1, 1] sesuai spesifikasi Teachable Machine
       // formula: (pixel / 127.5) - 1.0
       const normalized = tf.cast(resized, 'float32').div(tf.scalar(127.5)).sub(tf.scalar(1.0));
-      
+
       // Tambahkan dimensi batch: [1, 224, 224, 3]
       const batched = normalized.expandDims(0);
-      
+
       // Jalankan model prediksi
       const prediction = this.model.predict(batched);
-      
+
       // Ambil skor output
       const scores = prediction.dataSync();
-      
+
       // Temukan kelas dengan probabilitas tertinggi
       let maxScore = -1;
       let maxIndex = -1;
@@ -81,14 +81,14 @@ export class DetectionService {
           maxIndex = i;
         }
       }
-      
+
       if (maxIndex === -1) {
         return null;
       }
 
       const className = this.labels[maxIndex];
       const confidence = maxScore * 100;
-      
+
       return {
         className,
         score: maxScore,

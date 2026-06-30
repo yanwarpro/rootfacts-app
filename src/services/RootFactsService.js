@@ -69,11 +69,11 @@ export class RootFactsService {
     // Jika tidak ada API key, coba gunakan Transformers.js offline secara lokal
     try {
       console.log('Gemini API Key tidak ditemukan. Mencoba memuat model offline (Transformers.js)...');
-      
+
       const { pipeline } = await import('@huggingface/transformers');
       // Tentukan device backend secara adaptif
       const device = (typeof navigator !== 'undefined' && 'gpu' in navigator) ? 'webgpu' : 'cpu';
-      
+
       this.generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-78M', {
         device: device,
         progress_callback: (data) => {
@@ -98,7 +98,7 @@ export class RootFactsService {
 
   // Konfigurasi tone fakta yang dihasilkan
   setTone(tone) {
-    if (TONE_CONFIG.availableTones.some(t => t.value === tone)) {
+    if (TONE_CONFIG.availableTones.some((t) => t.value === tone)) {
       this.currentTone = tone;
       console.log(`Tone diatur ke: ${tone}`);
     }
@@ -128,21 +128,41 @@ export class RootFactsService {
             toneInstruction = 'Gunakan gaya bahasa yang standar, informatif, jelas, dan lugas.';
           }
 
-          // Konfigurasi parameter generasi model Gemini untuk menjaga performa
-          const model = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash',
-            generationConfig: {
-              temperature: 0.7,
-              maxOutputTokens: 150, // setara max_new_tokens
-              topP: 0.9,
-            }
-          });
-
           const prompt = `Berikan 1 fun fact menarik dan ringkas tentang nutrisi yang terkandung di dalam sayur/tanaman "${nameIndo}". ${toneInstruction} Tulis respons dalam Bahasa Indonesia dan buat hanya 1 atau 2 kalimat saja.`;
-          
-          const result = await model.generateContent(prompt);
-          const text = result.response.text().trim();
-          
+
+          let text = '';
+          const primaryModel = (apiKey && apiKey.startsWith('AQ.')) ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
+          const secondaryModel = primaryModel === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
+
+          try {
+            const model = genAI.getGenerativeModel({
+              model: primaryModel,
+              generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 150, // setara max_new_tokens
+                topP: 0.9,
+              }
+            });
+            const result = await model.generateContent(prompt);
+            text = result.response.text().trim();
+          } catch (firstErr) {
+            console.warn(`${primaryModel} failed, trying ${secondaryModel} as fallback:`, firstErr);
+            try {
+              const model = genAI.getGenerativeModel({
+                model: secondaryModel,
+                generationConfig: {
+                  temperature: 0.7,
+                  maxOutputTokens: 150,
+                  topP: 0.9,
+                }
+              });
+              const result = await model.generateContent(prompt);
+              text = result.response.text().trim();
+            } catch (secondErr) {
+              console.error(`${secondaryModel} also failed:`, secondErr);
+            }
+          }
+
           if (text) {
             this.isGenerating = false;
             return text;
@@ -167,7 +187,7 @@ export class RootFactsService {
           }
 
           const prompt = `Write a short, ${toneInstruction} nutritional fun fact about ${vegetableName}. Keep it to 1 sentence.`;
-          
+
           // Konfigurasi parameter generasi lokal untuk menjaga performa
           const output = await this.generator(prompt, {
             max_new_tokens: 150,
@@ -177,7 +197,7 @@ export class RootFactsService {
           });
           const generatedText = output[0]?.generated_text || '';
           console.log('Transformers.js output:', generatedText);
-          
+
           if (generatedText) {
             this.isGenerating = false;
             return generatedText;

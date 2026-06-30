@@ -18,14 +18,14 @@ export class CameraService {
   // Dapatkan daftar perangkat input video
   async loadCameras() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-      console.warn("Media devices API not supported in this browser.");
+      console.warn('Media devices API not supported in this browser.');
       return [];
     }
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
-      return devices.filter(device => device.kind === 'videoinput');
+      return devices.filter((device) => device.kind === 'videoinput');
     } catch (error) {
-      console.error("Error enumerating cameras:", error);
+      console.error('Error enumerating cameras:', error);
       return [];
     }
   }
@@ -58,7 +58,7 @@ export class CameraService {
       }
       return this.stream;
     } catch (error) {
-      console.error("Error starting camera feed:", error);
+      console.error('Error starting camera feed:', error);
       throw error;
     }
   }
@@ -66,7 +66,7 @@ export class CameraService {
   // Menghentikan siaran kamera dan membersihkan sumber daya
   stopCamera() {
     if (this.stream) {
-      this.stream.getTracks().forEach(track => track.stop());
+      this.stream.getTracks().forEach((track) => track.stop());
       this.stream = null;
     }
     if (this.video) {
@@ -82,8 +82,8 @@ export class CameraService {
       if (videoTrack && videoTrack.applyConstraints) {
         videoTrack.applyConstraints({
           frameRate: { ideal: this.fps }
-        }).catch(err => {
-          console.warn("Could not apply FPS constraint dynamically:", err);
+        }).catch((err) => {
+          console.warn('Could not apply FPS constraint dynamically:', err);
         });
       }
     }

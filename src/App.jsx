@@ -35,7 +35,7 @@ function App() {
     const loadAllModels = async () => {
       try {
         actions.setModelStatus('Memuat Model AI... (0%)');
-        
+
         await Promise.all([
           detector.loadModel((fraction) => {
             tfProgress = Math.round(fraction * 100);
@@ -46,7 +46,7 @@ function App() {
             updateStatus();
           })
         ]);
-        
+
         actions.setModelStatus('Model AI Siap');
       } catch (err) {
         console.error('Error loading models:', err);
@@ -81,24 +81,24 @@ function App() {
       if (camera && camera.isReady() && detector && detector.isLoaded()) {
         try {
           const result = await detector.predict(camera.video);
-          
+
           if (result && result.isValid) {
             // Stop scanning once detected successfully
             isRunningRef.current = false;
             actions.setRunning(false);
             camera.stopCamera();
-            
+
             // Show analyzing state
             actions.setAppState('analyzing');
             actions.setDetectionResult(result);
-            
+
             // Fake analyzing delay (delaying 2000ms as configured in APP_CONFIG)
             await createDelay(APP_CONFIG.analyzingDelay);
-            
+
             // Show results
             actions.setAppState('result');
             actions.setFunFactData(null); // start loading facts
-            
+
             // Call generator
             try {
               const fact = await generator.generateFacts(result.className);
@@ -139,7 +139,7 @@ function App() {
       try {
         actions.resetResults();
         await camera.startCamera(cameraType);
-        
+
         isRunningRef.current = true;
         actions.setRunning(true);
         startDetectionLoop();
@@ -153,11 +153,22 @@ function App() {
   };
 
   // Fungsi untuk mengubah nada fakta yang dihasilkan
-  const handleToneChange = (newTone) => {
+  const handleToneChange = async (newTone) => {
     setCurrentTone(newTone);
     const { generator } = state.services;
     if (generator) {
       generator.setTone(newTone);
+
+      if (state.appState === 'result' && state.detectionResult) {
+        actions.setFunFactData(null);
+        try {
+          const fact = await generator.generateFacts(state.detectionResult.className);
+          actions.setFunFactData(fact);
+        } catch (genErr) {
+          console.error('Error generating nutritional fact:', genErr);
+          actions.setFunFactData('error');
+        }
+      }
     }
   };
 

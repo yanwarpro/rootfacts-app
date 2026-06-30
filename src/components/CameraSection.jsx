@@ -67,7 +67,7 @@ function CameraSection({
             playsInline
             className={isRunning ? '' : 'hidden'}
           />
-          
+
           <canvas
             ref={canvasRef}
             id="media-canvas"
@@ -140,7 +140,7 @@ function CameraSection({
               onChange={handleToneChange}
               disabled={isRunning}
             >
-              {TONE_CONFIG.availableTones.map(option => (
+              {TONE_CONFIG.availableTones.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
