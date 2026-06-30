@@ -1,5 +1,4 @@
 import { TONE_CONFIG } from '../utils/config.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const VEGETABLE_TRANSLATIONS = {
   Beetroot: 'Bit',
@@ -53,28 +52,17 @@ export class RootFactsService {
     this.currentTone = TONE_CONFIG.defaultTone;
   }
 
-  // Muat model dan inisialisasi pipeline text2text-generation atau Gemini API
+  // Muat model dan inisialisasi pipeline text2text-generation secara lokal (Transformers.js)
   // Implementasikan strategi Backend Adaptive
   async loadModel(onProgress) {
-    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-
-    if (apiKey && apiKey !== 'YOUR_GEMINI_API_KEY' && apiKey.trim() !== '') {
-      console.log('Gemini API key detected. Using Gemini API for fact generation.');
-      this.currentBackend = 'gemini';
-      this.isModelLoaded = true;
-      if (onProgress) onProgress(1.0); // Immediately 100% since no local download is needed
-      return;
-    }
-
-    // Jika tidak ada API key, coba gunakan Transformers.js offline secara lokal
     try {
-      console.log('Gemini API Key tidak ditemukan. Mencoba memuat model offline (Transformers.js)...');
+      console.log('Mencoba memuat model offline Xenova/LaMini-Flan-T5-77M (Transformers.js)...');
 
       const { pipeline } = await import('@huggingface/transformers');
       // Tentukan device backend secara adaptif
       const device = (typeof navigator !== 'undefined' && 'gpu' in navigator) ? 'webgpu' : 'cpu';
 
-      this.generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-78M', {
+      this.generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-77M', {
         device: device,
         progress_callback: (data) => {
           if (data.status === 'progress' && onProgress) {
@@ -104,7 +92,7 @@ export class RootFactsService {
     }
   }
 
-  // Lakukan prediksi / generasi fakta nutrisi berdasarkan nama sayuran
+  // Lakukan prediksi / generasi fakta nutrisi berdasarkan nama sayuran secara lokal
   // Konfigurasikan parameter generasi berdasarkan kebutuhan
   // Implemenasikan parameter tone untuk mengatur nada fakta yang dihasilkan
   async generateFacts(vegetableName) {
@@ -112,72 +100,7 @@ export class RootFactsService {
     const nameIndo = VEGETABLE_TRANSLATIONS[vegetableName] || vegetableName;
 
     try {
-      if (this.currentBackend === 'gemini') {
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          console.warn('Koneksi internet terputus. Menggunakan database fallback lokal.');
-        } else {
-          try {
-            const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-            const genAI = new GoogleGenerativeAI(apiKey);
-
-            let toneInstruction = '';
-            if (this.currentTone === 'funny') {
-              toneInstruction = 'Gunakan gaya bahasa yang sangat lucu, humoris, menggelitik, dan menghibur.';
-            } else if (this.currentTone === 'professional') {
-              toneInstruction = 'Gunakan gaya bahasa yang formal, ilmiah, akademis, dan sangat profesional.';
-            } else if (this.currentTone === 'casual') {
-              toneInstruction = 'Gunakan gaya bahasa yang santai, akrab, bersahabat, dan kasual sehari-hari.';
-            } else {
-              toneInstruction = 'Gunakan gaya bahasa yang standar, informatif, jelas, dan lugas.';
-            }
-
-            const prompt = `Berikan 1 fun fact menarik dan ringkas tentang nutrisi yang terkandung di dalam sayur/tanaman "${nameIndo}". ${toneInstruction} Tulis respons dalam Bahasa Indonesia dan buat hanya 1 atau 2 kalimat saja.`;
-
-            let text = '';
-            const primaryModel = (apiKey && apiKey.startsWith('AQ.')) ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
-            const secondaryModel = primaryModel === 'gemini-1.5-flash' ? 'gemini-2.5-flash' : 'gemini-1.5-flash';
-
-            try {
-              const model = genAI.getGenerativeModel({
-                model: primaryModel,
-                generationConfig: {
-                  temperature: 0.7,
-                  maxOutputTokens: 150, // setara max_new_tokens
-                  topP: 0.9,
-                }
-              });
-              const result = await model.generateContent(prompt);
-              text = result.response.text().trim();
-            } catch (firstErr) {
-              console.warn(`${primaryModel} failed, trying ${secondaryModel} as fallback:`, firstErr);
-              try {
-                const model = genAI.getGenerativeModel({
-                  model: secondaryModel,
-                  generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 150,
-                    topP: 0.9,
-                  }
-                });
-                const result = await model.generateContent(prompt);
-                text = result.response.text().trim();
-              } catch (secondErr) {
-                console.warn(`${secondaryModel} also failed:`, secondErr);
-              }
-            }
-
-            if (text) {
-              this.isGenerating = false;
-              return text;
-            }
-          } catch (geminiError) {
-            console.warn('Gemini API call failed, falling back to local AI / DB generator:', geminiError);
-            // Beralih ke generator lokal tanpa menghentikan aplikasi
-          }
-        }
-      }
-
-      if (this.generator) {
+      if (this.currentBackend === 'transformers' && this.generator) {
         try {
           let toneInstruction = '';
           if (this.currentTone === 'funny') {
@@ -207,11 +130,11 @@ export class RootFactsService {
             return generatedText;
           }
         } catch (transErr) {
-          console.warn('Local Transformers.js generation failed:', transErr);
+          console.warn('Local Transformers.js generation failed, falling back to database:', transErr);
         }
       }
 
-      // Fallback lokal (juga dipicu jika backend 'fallback' aktif atau model di atas gagal)
+      // Fallback lokal database
       const baseFact = FALLBACK_FACTS[nameIndo] || `Nutrisi di dalam ${nameIndo} sangat baik untuk tubuh Anda.`;
       let formattedFact = baseFact;
 
