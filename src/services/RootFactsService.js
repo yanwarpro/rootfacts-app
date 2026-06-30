@@ -113,61 +113,78 @@ export class RootFactsService {
 
     try {
       if (this.currentBackend === 'gemini') {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        const genAI = new GoogleGenerativeAI(apiKey);
-        
-        let toneInstruction = '';
-        if (this.currentTone === 'funny') {
-          toneInstruction = 'Gunakan gaya bahasa yang sangat lucu, humoris, menggelitik, dan menghibur.';
-        } else if (this.currentTone === 'professional') {
-          toneInstruction = 'Gunakan gaya bahasa yang formal, ilmiah, akademis, dan sangat profesional.';
-        } else if (this.currentTone === 'casual') {
-          toneInstruction = 'Gunakan gaya bahasa yang santai, akrab, bersahabat, dan kasual sehari-hari.';
-        } else {
-          toneInstruction = 'Gunakan gaya bahasa yang standar, informatif, jelas, dan lugas.';
-        }
+        try {
+          const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+          const genAI = new GoogleGenerativeAI(apiKey);
 
-        // Konfigurasi parameter generasi model Gemini untuk menjaga performa
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 150, // setara max_new_tokens
-            topP: 0.9,
+          let toneInstruction = '';
+          if (this.currentTone === 'funny') {
+            toneInstruction = 'Gunakan gaya bahasa yang sangat lucu, humoris, menggelitik, dan menghibur.';
+          } else if (this.currentTone === 'professional') {
+            toneInstruction = 'Gunakan gaya bahasa yang formal, ilmiah, akademis, dan sangat profesional.';
+          } else if (this.currentTone === 'casual') {
+            toneInstruction = 'Gunakan gaya bahasa yang santai, akrab, bersahabat, dan kasual sehari-hari.';
+          } else {
+            toneInstruction = 'Gunakan gaya bahasa yang standar, informatif, jelas, dan lugas.';
           }
-        });
 
-        const prompt = `Berikan 1 fun fact menarik dan ringkas tentang nutrisi yang terkandung di dalam sayur/tanaman "${nameIndo}". ${toneInstruction} Tulis respons dalam Bahasa Indonesia dan buat hanya 1 atau 2 kalimat saja.`;
-        
-        const result = await model.generateContent(prompt);
-        const text = result.response.text().trim();
-        this.isGenerating = false;
-        return text;
+          // Konfigurasi parameter generasi model Gemini untuk menjaga performa
+          const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 150, // setara max_new_tokens
+              topP: 0.9,
+            }
+          });
+
+          const prompt = `Berikan 1 fun fact menarik dan ringkas tentang nutrisi yang terkandung di dalam sayur/tanaman "${nameIndo}". ${toneInstruction} Tulis respons dalam Bahasa Indonesia dan buat hanya 1 atau 2 kalimat saja.`;
+          
+          const result = await model.generateContent(prompt);
+          const text = result.response.text().trim();
+          
+          if (text) {
+            this.isGenerating = false;
+            return text;
+          }
+        } catch (geminiError) {
+          console.warn('Gemini API call failed, falling back to local AI / DB generator:', geminiError);
+          // Beralih ke generator lokal tanpa menghentikan aplikasi
+        }
       }
 
-      if (this.currentBackend === 'transformers' && this.generator) {
-        let toneInstruction = '';
-        if (this.currentTone === 'funny') {
-          toneInstruction = 'funny and humorous';
-        } else if (this.currentTone === 'professional') {
-          toneInstruction = 'scientific and formal';
-        } else if (this.currentTone === 'casual') {
-          toneInstruction = 'casual and friendly';
-        } else {
-          toneInstruction = 'informative';
-        }
+      if (this.generator) {
+        try {
+          let toneInstruction = '';
+          if (this.currentTone === 'funny') {
+            toneInstruction = 'funny and humorous';
+          } else if (this.currentTone === 'professional') {
+            toneInstruction = 'scientific and formal';
+          } else if (this.currentTone === 'casual') {
+            toneInstruction = 'casual and friendly';
+          } else {
+            toneInstruction = 'informative';
+          }
 
-        const prompt = `Write a short, ${toneInstruction} nutritional fun fact about ${vegetableName}. Keep it to 1 sentence.`;
-        
-        // Konfigurasi parameter generasi lokal untuk menjaga performa
-        const output = await this.generator(prompt, {
-          max_new_tokens: 150,
-          temperature: 0.7,
-          top_p: 0.9,
-          do_sample: true
-        });
-        const generatedText = output[0]?.generated_text || '';
-        console.log('Transformers.js output:', generatedText);
+          const prompt = `Write a short, ${toneInstruction} nutritional fun fact about ${vegetableName}. Keep it to 1 sentence.`;
+          
+          // Konfigurasi parameter generasi lokal untuk menjaga performa
+          const output = await this.generator(prompt, {
+            max_new_tokens: 150,
+            temperature: 0.7,
+            top_p: 0.9,
+            do_sample: true
+          });
+          const generatedText = output[0]?.generated_text || '';
+          console.log('Transformers.js output:', generatedText);
+          
+          if (generatedText) {
+            this.isGenerating = false;
+            return generatedText;
+          }
+        } catch (transErr) {
+          console.warn('Local Transformers.js generation failed:', transErr);
+        }
       }
 
       // Fallback lokal (juga dipicu jika backend 'fallback' aktif atau model di atas gagal)
