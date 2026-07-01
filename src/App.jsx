@@ -142,7 +142,13 @@ function App() {
 
         isRunningRef.current = true;
         actions.setRunning(true);
-        startDetectionLoop();
+
+        // Jeda sejenak agar stream kamera tampil di layar sebelum pemrosesan model dimulai
+        await createDelay(APP_CONFIG.cameraDelay || 2000);
+
+        if (isRunningRef.current) {
+          startDetectionLoop();
+        }
       } catch (err) {
         console.error('Failed to open camera:', err);
         actions.setError('Gagal mengakses kamera. Harap beri izin akses kamera.');

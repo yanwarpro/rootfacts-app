@@ -2,7 +2,8 @@ export const APP_CONFIG = {
   detectionConfidenceThreshold: 70,
   analyzingDelay: 2000,
   factsGenerationDelay: 2000,
-  detectionRetryInterval: 100
+  detectionRetryInterval: 100,
+  cameraDelay: 2000
 };
 
 export const TONE_CONFIG = {
