@@ -62,7 +62,8 @@ export class RootFactsService {
       // Tentukan device backend secara adaptif
       const device = (typeof navigator !== 'undefined' && 'gpu' in navigator) ? 'webgpu' : 'cpu';
 
-      this.generator = await pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-77M', {
+      // Gunakan Promise.race untuk membatasi waktu pemuatan model selama 10 detik
+      const loadPromise = pipeline('text2text-generation', 'Xenova/LaMini-Flan-T5-77M', {
         device: device,
         progress_callback: (data) => {
           if (data.status === 'progress' && onProgress) {
@@ -72,6 +73,12 @@ export class RootFactsService {
           }
         }
       });
+
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Pemuatan model teks timeout setelah 10 detik')), 10000)
+      );
+
+      this.generator = await Promise.race([loadPromise, timeoutPromise]);
       this.currentBackend = 'transformers';
       this.isModelLoaded = true;
       console.log(`Transformers.js berhasil dimuat pada device: ${device}`);
