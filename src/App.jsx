@@ -6,7 +6,7 @@ import { useAppState } from './hooks/useAppState';
 import { CameraService } from './services/CameraService';
 import { DetectionService } from './services/DetectionService';
 import { RootFactsService } from './services/RootFactsService';
-import { APP_CONFIG } from './utils/config';
+import { APP_CONFIG, isValidDetection } from './utils/config';
 import { createDelay } from './utils/common';
 
 function App() {
@@ -82,7 +82,7 @@ function App() {
         try {
           const result = await detector.predict(camera.video);
 
-          if (result && result.isValid) {
+          if (isValidDetection(result)) {
             // Stop scanning once detected successfully
             isRunningRef.current = false;
             actions.setRunning(false);
